@@ -11,20 +11,39 @@ const OrderSuccess = () => {
   const clearCart = useCartStore((state) => state.clearCart)
 
   useEffect(() => {
+    let interval
+
     const fetchOrder = async () => {
       try {
         const { data } = await API.get(`/order/${orderId}`)
         setOrder(data)
-        clearCart()
+
+        // If payment is successful and cart hasn't been cleared yet
+        if (data.paymentStatus === "paid") {
+          clearCart()
+          // Stop polling once we know it's paid
+          if (interval) clearInterval(interval)
+        }
       } catch (err) {
         console.error("Error fetching order:", err)
       } finally {
         setLoading(false)
       }
     }
-    fetchOrder()
-  }, [orderId])
 
+    fetchOrder()
+
+    // Handle Race Condition: Poll every 3 seconds if status isn't updated yet
+    interval = setInterval(() => {
+      // Only poll if we have an order and it's still not marked as paid
+      if (order && order.paymentStatus !== "paid") {
+        fetchOrder()
+      }
+    }, 3000)
+
+    // Cleanup: Stop polling when user leaves the page
+    return () => clearInterval(interval)
+  }, [orderId, order?.paymentStatus]) // Dependency on status to trigger re-eval
   if (loading)
     return <div className="text-center py-20">Updating order status...</div>
   if (!order) return <div className="text-center py-20">Order not found.</div>
@@ -39,7 +58,14 @@ const OrderSuccess = () => {
         <div className="bg-green-500 p-8 text-center text-white">
           <CheckCircle className="w-16 h-16 mx-auto mb-4 animate-bounce" />
           <h1 className="text-3xl font-black">Order Confirmed!</h1>
-          <p className="opacity-90 mt-2 text-lg">Order #{order.orderNumber}</p>
+          <p className="opacity-90 mt-2 text-lg">
+            Order #{order.orderNumber}{" "}
+            {order.paymentStatus === "pending" && (
+              <span className="ml-2 text-sm italic animate-pulse">
+                (Confirming payment...)
+              </span>
+            )}
+          </p>
         </div>
 
         {/* Status Tracker */}
