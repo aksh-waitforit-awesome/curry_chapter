@@ -23,8 +23,9 @@ export function SocketProvider({ children }) {
     }
 
     const socket = new WebSocket(
-      import.meta.env.VITE_SOCKET_URL ||
-        "wss://restaurant-management-service-server.onrender.com/ws",
+      import.meta.env.VITE_NODE_ENV === "production"
+        ? import.meta.env.VITE_SOCKET_URL
+        : "ws://localhost:3000/ws",
     )
     socketRef.current = socket
     setStatus("connecting")
